@@ -54,17 +54,17 @@ export default class MenuBuilder {
 
   buildDarwinTemplate(): MenuItemConstructorOptions[] {
     const subMenuAbout: DarwinMenuItemConstructorOptions = {
-      label: 'Electron',
+      label: 'Text Editor',
       submenu: [
         {
-          label: 'About ElectronReact',
+          label: 'About Text Editor',
           selector: 'orderFrontStandardAboutPanel:',
         },
         { type: 'separator' },
         { label: 'Services', submenu: [] },
         { type: 'separator' },
         {
-          label: 'Hide ElectronReact',
+          label: 'Hide Text Editor',
           accelerator: 'Command+H',
           selector: 'hide:',
         },
@@ -82,6 +82,18 @@ export default class MenuBuilder {
             app.quit();
           },
         },
+      ],
+    };
+    const subMenuFile: MenuItemConstructorOptions = {
+      label: 'File',
+      submenu: [
+        { label: 'New Tab', accelerator: 'Command+N', click: () => this.mainWindow.webContents.send('menu:action', 'file:new') },
+        { label: 'Open…', accelerator: 'Command+O', click: () => this.mainWindow.webContents.send('menu:action', 'file:open') },
+        { type: 'separator' },
+        { label: 'Save', accelerator: 'Command+S', click: () => this.mainWindow.webContents.send('menu:action', 'file:save') },
+        { label: 'Save As…', accelerator: 'Command+Shift+S', click: () => this.mainWindow.webContents.send('menu:action', 'file:saveAs') },
+        { type: 'separator' },
+        { label: 'Open Recent', submenu: Menu.buildFromTemplate(this.buildRecentSubmenu()) },
       ],
     };
     const subMenuEdit: DarwinMenuItemConstructorOptions = {
@@ -151,37 +163,7 @@ export default class MenuBuilder {
         { label: 'Bring All to Front', selector: 'arrangeInFront:' },
       ],
     };
-    const subMenuHelp: MenuItemConstructorOptions = {
-      label: 'Help',
-      submenu: [
-        {
-          label: 'Learn More',
-          click() {
-            shell.openExternal('https://electronjs.org');
-          },
-        },
-        {
-          label: 'Documentation',
-          click() {
-            shell.openExternal(
-              'https://github.com/electron/electron/tree/main/docs#readme',
-            );
-          },
-        },
-        {
-          label: 'Community Discussions',
-          click() {
-            shell.openExternal('https://www.electronjs.org/community');
-          },
-        },
-        {
-          label: 'Search Issues',
-          click() {
-            shell.openExternal('https://github.com/electron/electron/issues');
-          },
-        },
-      ],
-    };
+
 
     const subMenuView =
       process.env.NODE_ENV === 'development' ||
@@ -189,18 +171,21 @@ export default class MenuBuilder {
         ? subMenuViewDev
         : subMenuViewProd;
 
-    return [subMenuAbout, subMenuEdit, subMenuView, subMenuWindow, subMenuHelp];
+    return [subMenuAbout, subMenuFile, subMenuEdit, subMenuView, subMenuWindow];
   }
 
-  buildDefaultTemplate() {
+  buildDefaultTemplate(): MenuItemConstructorOptions[] {
     const templateDefault = [
       {
         label: '&File',
         submenu: [
-          {
-            label: '&Open',
-            accelerator: 'Ctrl+O',
-          },
+          { label: 'New Tab', accelerator: 'Ctrl+N', click: () => this.mainWindow.webContents.send('menu:action', 'file:new') },
+          { label: '&Open…', accelerator: 'Ctrl+O', click: () => this.mainWindow.webContents.send('menu:action', 'file:open') },
+          { type: 'separator' },
+          { label: '&Save', accelerator: 'Ctrl+S', click: () => this.mainWindow.webContents.send('menu:action', 'file:save') },
+          { label: 'Save &As…', accelerator: 'Ctrl+Shift+S', click: () => this.mainWindow.webContents.send('menu:action', 'file:saveAs') },
+          { type: 'separator' },
+          { label: 'Open Recent', submenu: Menu.buildFromTemplate(this.buildRecentSubmenu()) },
           {
             label: '&Close',
             accelerator: 'Ctrl+W',
@@ -286,5 +271,36 @@ export default class MenuBuilder {
     ];
 
     return templateDefault;
+  }
+
+  private buildRecentSubmenu(): MenuItemConstructorOptions[] {
+    const items: string[] = (() => {
+      try {
+        const { app } = require('electron');
+        const fs = require('fs');
+        const path = require('path');
+        const file = path.join(app.getPath('userData'), 'recent.json');
+        const content = fs.readFileSync(file, 'utf-8');
+        return JSON.parse(content);
+      } catch {
+        return [];
+      }
+    })();
+    if (items.length === 0) {
+      return [
+        { label: 'No Recent Files', enabled: false },
+        { label: 'Clear Recent', enabled: false },
+      ];
+    }
+    const recentItems: MenuItemConstructorOptions[] = items.slice(0, 10).map((p) => ({
+      label: p,
+      click: () => this.mainWindow.webContents.send('menu:action', 'file:openPath', p),
+    }));
+    recentItems.push({ type: 'separator' });
+    recentItems.push({
+      label: 'Clear Recent',
+      click: () => this.mainWindow.webContents.send('menu:action', 'recent:clear'),
+    });
+    return recentItems;
   }
 }
